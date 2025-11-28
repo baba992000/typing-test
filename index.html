@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>typing-test</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="fixed-header">
+      <h1>タイピング入力画面</h1>
+      <div class="sample-button">
+        <button id="sampleBtn">見本</button>
+      </div>
+      <div class="buttons">
+        <button id="startBtn">スタート</button>
+        <button id="stopBtn">ストップ</button>
+        <button id="resetBtn">リセット</button>
+      </div>
+      <div id="status">
+        <p>経過時間: <span id="time">00:00</span></p>
+        <p>入力文字数: <span id="typedChars">0</span></p>
+        <p>誤字数: <span id="mistakes">0</span></p>
+      </div>
+      <p id="message" class="result-message"></p>
+    </header>
+    <main class="input-container">
+      <textarea
+        id="inputArea"
+        placeholder="ここに見本文を見ながら入力してください..."
+        disabled
+      ></textarea>
+    </main>
+    <script src="js/input.js"></script>
+  </body>
+</html>

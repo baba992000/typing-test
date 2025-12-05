@@ -3,6 +3,7 @@ let startTime;
 let typing = false;
 let sampleText = "";
 let sampleWindow = null;
+let warningTimer = null; // ← 警告自動削除タイマー
 
 const LIMIT = 600; // 制限時間（秒）
 const inputArea = document.getElementById("inputArea");
@@ -27,12 +28,39 @@ window.addEventListener("message", (event) => {
 });
 
 // ---------------------------------------------------
-// 誤字数計算（入力に対して0から増やしていく形）
-//
-// 方針：ユーザーの入力 (inputPure) を、正解テキストの任意の接頭辞 (correctPure.slice(0,j))
-// に合わせるのに必要な最小編集回数を求め、その最小値を誤字数とする。
-// 初期条件で「入力が空のときは誤字0」となるように dp[0][j] = 0 としている。
-// 操作コスト：置換 +1、欠落（正解を打たない）+1、余分入力 +1
+// 半角検出と除去（半角カタカナも禁止）
+// ---------------------------------------------------
+function detectAndBlockHalfWidth(input, cursorPos) {
+  // 半角英数字・半角記号・半角スペース・半角カタカナ（FF61〜FF9F）
+  const halfWidthRegex = /[\u0020-\u007E\uFF61-\uFF9F]/;
+
+  if (!halfWidthRegex.test(input)) {
+    return { text: input, cursor: cursorPos, blocked: false };
+  }
+
+  // 半角文字をすべて削除
+  const removed = input.replace(/[\u0020-\u007E\uFF61-\uFF9F]/g, "");
+
+  return { text: removed, cursor: removed.length, blocked: true };
+}
+
+// ---------------------------------------------------
+// 警告メッセージ表示（5秒後に自動消去）
+// ---------------------------------------------------
+function showWarning(msg) {
+  message.textContent = msg;
+
+  // 既存タイマーがあればリセット
+  if (warningTimer) clearTimeout(warningTimer);
+
+  // 5秒後に消す
+  warningTimer = setTimeout(() => {
+    message.textContent = "";
+  }, 5000);
+}
+
+// ---------------------------------------------------
+// 誤字数計算
 // ---------------------------------------------------
 function calcMistakes(input, correct) {
   const inputPure = input.replace(/\n/g, "");
@@ -41,36 +69,28 @@ function calcMistakes(input, correct) {
   const n = inputPure.length;
   const m = correctPure.length;
 
-  // dp[i][j] = inputPure の先頭 i 文字を correctPure の先頭 j 文字に変換する最小コスト
   const dp = new Array(n + 1);
   for (let i = 0; i <= n; i++) {
     dp[i] = new Array(m + 1).fill(Number.MAX_SAFE_INTEGER);
   }
 
   dp[0][0] = 0;
-  // 入力が空のとき、正解の任意の接頭辞に対してコスト0（未入力の残りは誤字としない）
   for (let j = 1; j <= m; j++) dp[0][j] = 0;
-  // 入力側に文字があるが正解が空の場合、余分入力は誤字としてカウント
   for (let i = 1; i <= n; i++) dp[i][0] = i;
 
   for (let i = 1; i <= n; i++) {
     for (let j = 1; j <= m; j++) {
-      // 一致または置換
       if (inputPure[i - 1] === correctPure[j - 1]) {
         dp[i][j] = Math.min(dp[i][j], dp[i - 1][j - 1]);
       } else {
-        dp[i][j] = Math.min(dp[i][j], dp[i - 1][j - 1] + 1); // 置換
+        dp[i][j] = Math.min(dp[i][j], dp[i - 1][j - 1] + 1);
       }
 
-      // 正解側の文字をスキップ（ユーザーがその文字を打たなかった） = 欠落（+1）
       dp[i][j] = Math.min(dp[i][j], dp[i][j - 1] + 1);
-
-      // 入力側の文字をスキップ（ユーザーが余分に打った） = 余分入力（+1）
       dp[i][j] = Math.min(dp[i][j], dp[i - 1][j] + 1);
     }
   }
 
-  // 入力を正解のどの接頭辞に合わせるのが最もコストが小さいかを取る
   let best = Number.MAX_SAFE_INTEGER;
   for (let j = 0; j <= m; j++) {
     if (dp[n][j] < best) best = dp[n][j];
@@ -167,7 +187,7 @@ function resetTyping() {
 }
 
 // ---------------------------------------------------
-// 以下：入力中の自動改行処理
+// 入力の自動改行処理
 // ---------------------------------------------------
 const maxCount = 40;
 let processing = false;
@@ -187,6 +207,19 @@ function handleInput() {
   const oldValue = inputArea.value;
   const oldCursor = inputArea.selectionStart;
 
+  // ① 半角チェック（今回の強化版）
+  const halfCheck = detectAndBlockHalfWidth(oldValue, oldCursor);
+  if (halfCheck.blocked) {
+    inputArea.value = halfCheck.text;
+    inputArea.selectionStart = inputArea.selectionEnd = halfCheck.cursor;
+
+    showWarning("※ 半角文字は入力できません。全角で入力してください。");
+
+    processing = false;
+    return;
+  }
+
+  // ② 自動改行
   const newLines = [];
   const lines = oldValue.split("\n");
 
@@ -211,12 +244,11 @@ function handleInput() {
   const newValue = newLines.join("\n");
 
   if (newValue !== oldValue) {
-    const newCursor = computeNewCursor(oldValue, oldCursor);
     inputArea.value = newValue;
-    inputArea.selectionStart = inputArea.selectionEnd = newCursor;
+    inputArea.selectionStart = inputArea.selectionEnd = newValue.length;
   }
 
-  // リアルタイムに誤字・文字数を更新
+  // ③ リアルタイム誤字数
   if (typing) {
     const typed = inputArea.value;
     const typedLen = typed.replace(/\n/g, "").length;
@@ -227,34 +259,4 @@ function handleInput() {
   }
 
   processing = false;
-}
-
-// ---------------------------------------------------
-// カーソル位置を再計算
-// ---------------------------------------------------
-function computeNewCursor(oldValue, oldCursor) {
-  const prefix = oldValue.slice(0, oldCursor);
-
-  const newLines = [];
-  const lines = prefix.split("\n");
-
-  for (let line of lines) {
-    let count = 0;
-    let chunk = "";
-
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      count += /[ -~]/.test(ch) ? 0.5 : 1;
-      chunk += ch;
-
-      if (count >= maxCount) {
-        newLines.push(chunk);
-        chunk = "";
-        count = 0;
-      }
-    }
-    if (chunk.length || line === "") newLines.push(chunk);
-  }
-
-  return newLines.join("\n").length;
 }

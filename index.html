@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
@@ -24,11 +24,12 @@
       <p id="message" class="result-message"></p>
     </header>
     <main class="input-container">
-      <textarea
-        id="inputArea"
-        placeholder="ここに見本文を見ながら入力してください..."
-        disabled
-      ></textarea>
+      <!-- disabled → 最初は入力できない
+      スタートで有効化される -->
+      <div class="typing-wrapper">
+        <div id="highlight"></div>
+        <textarea id="inputArea"></textarea>
+      </div>
     </main>
     <script src="js/input.js"></script>
   </body>

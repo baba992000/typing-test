@@ -3,15 +3,41 @@ let startTime;
 let typing = false;
 let sampleText = "";
 let sampleWindow = null;
-let warningTimer = null; // ← 警告自動削除タイマー
+let warningTimer = null;
 
-const LIMIT = 600; // 制限時間（秒）
+const LIMIT = 600;
 const inputArea = document.getElementById("inputArea");
 const timeDisplay = document.getElementById("time");
 const typedCharsDisplay = document.getElementById("typedChars");
 const mistakesDisplay = document.getElementById("mistakes");
 const message = document.getElementById("message");
+const highlight = document.getElementById("highlight");
 
+// -----------------------------
+function insertLineBreaks(text, maxCount = 40) {
+  let count = 0;
+  let newText = "";
+  let skipSpace = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (skipSpace && (char === " " || char === "　")) continue;
+
+    count += /[ -~]/.test(char) ? 0.5 : 1;
+    newText += char;
+    skipSpace = false;
+
+    if (count >= maxCount) {
+      newText += "\n";
+      count = 0;
+      skipSpace = true;
+    }
+  }
+  return newText;
+}
+
+// -----------------------------
 document.getElementById("sampleBtn").addEventListener("click", openSample);
 document.getElementById("startBtn").addEventListener("click", startTyping);
 document
@@ -19,7 +45,7 @@ document
   .addEventListener("click", () => stopTyping(false));
 document.getElementById("resetBtn").addEventListener("click", resetTyping);
 
-// sample.html から見本文を受信
+// -----------------------------
 window.addEventListener("message", (event) => {
   if (event.data.type === "sampleTextLoaded") {
     sampleText = event.data.text;
@@ -27,41 +53,120 @@ window.addEventListener("message", (event) => {
   }
 });
 
-// ---------------------------------------------------
-// 半角検出と除去（半角カタカナも禁止）
-// ---------------------------------------------------
+// -----------------------------
+// ★ 改良版ハイライト（不足→次文字を赤）
+// -----------------------------
+function renderHighlight(input, correct) {
+  highlight.innerHTML = "";
+
+  const a = input.replace(/\n/g, "");
+  const b = correct.replace(/\n/g, "");
+
+  const n = a.length;
+  const m = b.length;
+
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+
+  for (let i = 0; i <= n; i++) dp[i][0] = i;
+  for (let j = 0; j <= m; j++) dp[0][j] = 0;
+
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]) + 1;
+      }
+    }
+  }
+
+  let best = Number.MAX_SAFE_INTEGER;
+  let bestJ = 0;
+
+  for (let j = 0; j <= m; j++) {
+    if (dp[n][j] < best) {
+      best = dp[n][j];
+      bestJ = j;
+    }
+  }
+
+  let i = n;
+  let j = bestJ;
+  const result = [];
+
+  let markNextAsMiss = false;
+
+  while (i > 0 || j > 0) {
+    // 一致
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      if (markNextAsMiss) {
+        result.push(`<span class="miss">${a[i - 1]}</span>`);
+        markNextAsMiss = false;
+      } else {
+        result.push(`<span>${a[i - 1]}</span>`);
+      }
+      i--;
+      j--;
+    }
+    // 置換
+    else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + 1) {
+      result.push(`<span class="miss">${a[i - 1]}</span>`);
+      i--;
+      j--;
+    }
+    // 削除（余分）
+    else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
+      result.push(`<span class="miss">${a[i - 1]}</span>`);
+      i--;
+    }
+    // ★ 挿入（不足）→ 次を赤にする
+    else {
+      markNextAsMiss = true;
+      j--;
+    }
+  }
+
+  result.reverse();
+
+  let html = "";
+  let index = 0;
+
+  for (let char of input) {
+    if (char === "\n") {
+      html += "<br>";
+    } else {
+      html += result[index] || `<span>${char}</span>`;
+      index++;
+    }
+  }
+
+  highlight.innerHTML = html;
+}
+
+// -----------------------------
 function detectAndBlockHalfWidth(input, cursorPos) {
-  // 半角英数字・半角記号・半角スペース・半角カタカナ（FF61〜FF9F）
   const halfWidthRegex = /[\u0020-\u007E\uFF61-\uFF9F]/;
 
   if (!halfWidthRegex.test(input)) {
     return { text: input, cursor: cursorPos, blocked: false };
   }
 
-  // 半角文字をすべて削除
   const removed = input.replace(/[\u0020-\u007E\uFF61-\uFF9F]/g, "");
-
   return { text: removed, cursor: removed.length, blocked: true };
 }
 
-// ---------------------------------------------------
-// 警告メッセージ表示（5秒後に自動消去）
-// ---------------------------------------------------
+// -----------------------------
 function showWarning(msg) {
   message.textContent = msg;
 
-  // 既存タイマーがあればリセット
   if (warningTimer) clearTimeout(warningTimer);
 
-  // 5秒後に消す
   warningTimer = setTimeout(() => {
     message.textContent = "";
   }, 5000);
 }
 
-// ---------------------------------------------------
-// 誤字数計算
-// ---------------------------------------------------
+// -----------------------------
 function calcMistakes(input, correct) {
   const inputPure = input.replace(/\n/g, "");
   const correctPure = correct.replace(/\n/g, "");
@@ -98,24 +203,20 @@ function calcMistakes(input, correct) {
   return best === Number.MAX_SAFE_INTEGER ? 0 : best;
 }
 
-// ---------------------------------------------------
-// 見本ウィンドウを開く
-// ---------------------------------------------------
+// -----------------------------
 function openSample() {
   if (!sampleWindow || sampleWindow.closed) {
     sampleWindow = window.open(
       "sample.html",
       "sampleWindow",
-      "width=800,height=800"
+      "width=800,height=800",
     );
   } else {
     sampleWindow.focus();
   }
 }
 
-// ---------------------------------------------------
-// タイピング開始
-// ---------------------------------------------------
+// -----------------------------
 function startTyping() {
   if (typing) return;
   typing = true;
@@ -128,9 +229,7 @@ function startTyping() {
   timerInterval = setInterval(updateTime, 1000);
 }
 
-// ---------------------------------------------------
-// 時間更新
-// ---------------------------------------------------
+// -----------------------------
 function updateTime() {
   const now = new Date();
   const sec = Math.floor((now - startTime) / 1000);
@@ -138,17 +237,12 @@ function updateTime() {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
 
-  timeDisplay.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(
-    2,
-    "0"
-  )}`;
+  timeDisplay.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 
   if (sec >= LIMIT) stopTyping(true);
 }
 
-// ---------------------------------------------------
-// タイピング終了
-// ---------------------------------------------------
+// -----------------------------
 function stopTyping(timeout = false) {
   if (!typing) return;
   typing = false;
@@ -163,16 +257,12 @@ function stopTyping(timeout = false) {
   typedCharsDisplay.textContent = typedLen;
   mistakesDisplay.textContent = mistakes;
 
-  if (timeout) {
-    message.textContent = `時間切れです！ 入力文字数：${typedLen} 誤字数：${mistakes}`;
-  } else {
-    message.textContent = `ストップしました！ 入力文字数：${typedLen} 誤字数：${mistakes}`;
-  }
+  message.textContent = timeout
+    ? `時間切れです！ 入力文字数：${typedLen} 誤字数：${mistakes}`
+    : `ストップしました！ 入力文字数：${typedLen} 誤字数：${mistakes}`;
 }
 
-// ---------------------------------------------------
-// リセット
-// ---------------------------------------------------
+// -----------------------------
 function resetTyping() {
   typing = false;
   clearInterval(timerInterval);
@@ -184,12 +274,11 @@ function resetTyping() {
   typedCharsDisplay.textContent = "0";
   mistakesDisplay.textContent = "0";
   message.textContent = "";
+
+  highlight.innerHTML = "";
 }
 
-// ---------------------------------------------------
-// 入力の自動改行処理
-// ---------------------------------------------------
-const maxCount = 40;
+// -----------------------------
 let processing = false;
 let composing = false;
 
@@ -200,15 +289,15 @@ inputArea.addEventListener("compositionend", () => {
 });
 inputArea.addEventListener("input", handleInput);
 
+// -----------------------------
 function handleInput() {
   if (processing || composing) return;
   processing = true;
 
-  const oldValue = inputArea.value;
-  const oldCursor = inputArea.selectionStart;
+  let text = inputArea.value;
+  const cursor = inputArea.selectionStart;
 
-  // ① 半角チェック（今回の強化版）
-  const halfCheck = detectAndBlockHalfWidth(oldValue, oldCursor);
+  const halfCheck = detectAndBlockHalfWidth(text, cursor);
   if (halfCheck.blocked) {
     inputArea.value = halfCheck.text;
     inputArea.selectionStart = inputArea.selectionEnd = halfCheck.cursor;
@@ -219,44 +308,21 @@ function handleInput() {
     return;
   }
 
-  // ② 自動改行
-  const newLines = [];
-  const lines = oldValue.split("\n");
+  const noBreak = text.replace(/\n/g, "");
+  const formatted = insertLineBreaks(noBreak);
 
-  for (let line of lines) {
-    let count = 0;
-    let chunk = "";
+  inputArea.value = formatted;
+  inputArea.selectionStart = inputArea.selectionEnd = formatted.length;
 
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      count += /[ -~]/.test(ch) ? 0.5 : 1;
-      chunk += ch;
-
-      if (count >= maxCount) {
-        newLines.push(chunk);
-        chunk = "";
-        count = 0;
-      }
-    }
-    if (chunk.length || line === "") newLines.push(chunk);
-  }
-
-  const newValue = newLines.join("\n");
-
-  if (newValue !== oldValue) {
-    inputArea.value = newValue;
-    inputArea.selectionStart = inputArea.selectionEnd = newValue.length;
-  }
-
-  // ③ リアルタイム誤字数
   if (typing) {
-    const typed = inputArea.value;
-    const typedLen = typed.replace(/\n/g, "").length;
-    const mistakes = calcMistakes(typed, sampleText);
+    const typedLen = formatted.replace(/\n/g, "").length;
+    const mistakes = calcMistakes(formatted, sampleText);
 
     typedCharsDisplay.textContent = typedLen;
     mistakesDisplay.textContent = mistakes;
   }
+
+  renderHighlight(formatted, sampleText);
 
   processing = false;
 }

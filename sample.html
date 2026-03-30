@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
@@ -36,6 +36,7 @@
     </div>
     <div class="box" id="sampleText">ファイルを選択してください。</div>
     <script>
+      // ４０文字ごとに改行
       function insertLineBreaks(text, maxCount = 40) {
         let count = 0;
         let newText = "";
@@ -61,6 +62,7 @@
           if (!file) return;
           const reader = new FileReader();
           reader.onload = function (e) {
+            // 改行を消す
             const original = e.target.result.replace(/\r?\n/g, "");
             let displayText = e.target.result
               .replace(/ /g, "　")
@@ -80,9 +82,10 @@
             document.getElementById("sampleText").textContent = finalText;
             if (window.opener && !window.opener.closed) {
               const compareText = insertLineBreaks(original);
+              // メイン画面へ送信
               window.opener.postMessage(
                 { type: "sampleTextLoaded", text: compareText },
-                "*"
+                "*",
               );
             }
           };

@@ -8,29 +8,41 @@
   <body>
     <header class="fixed-header">
       <h1>タイピング入力画面</h1>
+
       <div class="sample-button">
         <button id="sampleBtn">見本</button>
       </div>
+
       <div class="buttons">
         <button id="startBtn">スタート</button>
         <button id="stopBtn">ストップ</button>
         <button id="resetBtn">リセット</button>
       </div>
+
       <div id="status">
+        <!-- 経過時間 -->
         <p>経過時間: <span id="time">00:00</span></p>
-        <p>入力文字数: <span id="typedChars">0</span></p>
-        <p>誤字数: <span id="mistakes">0</span></p>
+
+        <!-- ★ 横一列にまとめる -->
+        <p>
+          入力文字数: <span id="typedChars">0</span> ／ 誤字数:
+          <span id="mistakes">0</span> ／ 純字数: <span id="netChars">0</span>
+        </p>
+
+        <!-- ★ 判定は下 -->
+        <p>判定: <span id="rank">未判定</span></p>
       </div>
+
       <p id="message" class="result-message"></p>
     </header>
+
     <main class="input-container">
-      <!-- disabled → 最初は入力できない
-      スタートで有効化される -->
       <div class="typing-wrapper">
         <div id="highlight"></div>
         <textarea id="inputArea"></textarea>
       </div>
     </main>
+
     <script src="js/input.js"></script>
   </body>
 </html>

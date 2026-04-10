@@ -3,16 +3,51 @@ let startTime;
 let typing = false;
 let sampleText = "";
 let sampleWindow = null;
-let warningTimer = null;
 
 const LIMIT = 600;
+
+// ★ 判定済みフラグ
+let isFinished = false;
+
 const inputArea = document.getElementById("inputArea");
 const timeDisplay = document.getElementById("time");
 const typedCharsDisplay = document.getElementById("typedChars");
 const mistakesDisplay = document.getElementById("mistakes");
+const netCharsDisplay = document.getElementById("netChars");
+const rankDisplay = document.getElementById("rank");
 const message = document.getElementById("message");
 const highlight = document.getElementById("highlight");
+const startBtn = document.getElementById("startBtn");
 
+// ★ 初期状態でスタートボタン無効
+startBtn.disabled = true;
+
+// -----------------------------
+// ★ 貼り付け禁止
+// -----------------------------
+inputArea.addEventListener("paste", (e) => {
+  e.preventDefault();
+});
+
+// -----------------------------
+// 段級判定
+// -----------------------------
+function getRank(net) {
+  if (net >= 2000) return "特段";
+  if (net >= 1500) return "初段";
+  if (net >= 1000) return "1級";
+  if (net >= 800) return "準1級";
+  if (net >= 600) return "2級";
+  if (net >= 450) return "準2級";
+  if (net >= 350) return "3級";
+  if (net >= 250) return "4級";
+  if (net >= 100) return "5級";
+  if (net >= 50) return "6級";
+  return "未満";
+}
+
+// -----------------------------
+// 40文字自動改行
 // -----------------------------
 function insertLineBreaks(text, maxCount = 40) {
   let count = 0;
@@ -46,15 +81,21 @@ document
 document.getElementById("resetBtn").addEventListener("click", resetTyping);
 
 // -----------------------------
+// ★ sample受信
+// -----------------------------
 window.addEventListener("message", (event) => {
   if (event.data.type === "sampleTextLoaded") {
     sampleText = event.data.text;
     resetTyping();
+
+    // ★ スタートボタン有効化
+    startBtn.disabled = false;
+    message.textContent = "見本を読み込みました！スタートできます。";
   }
 });
 
 // -----------------------------
-// ★ 改良版ハイライト（不足→次文字を赤）
+// ハイライト処理（変更なし）
 // -----------------------------
 function renderHighlight(input, correct) {
   highlight.innerHTML = "";
@@ -72,10 +113,16 @@ function renderHighlight(input, correct) {
 
   for (let i = 1; i <= n; i++) {
     for (let j = 1; j <= m; j++) {
-      if (a[i - 1] === b[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1];
-      } else {
-        dp[i][j] = Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]) + 1;
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost,
+      );
+
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + 2);
       }
     }
   }
@@ -94,34 +141,42 @@ function renderHighlight(input, correct) {
   let j = bestJ;
   const result = [];
 
-  let markNextAsMiss = false;
+  let lackCount = 0;
+  let mistakes = 0;
 
   while (i > 0 || j > 0) {
-    // 一致
     if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
-      if (markNextAsMiss) {
-        result.push(`<span class="miss">${a[i - 1]}</span>`);
-        markNextAsMiss = false;
+      if (lackCount > 0) {
+        result.push(`<span class="lack">${a[i - 1]}</span>`);
+        lackCount--;
+        mistakes++;
       } else {
         result.push(`<span>${a[i - 1]}</span>`);
       }
       i--;
       j--;
-    }
-    // 置換
-    else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + 1) {
+    } else if (
+      i > 1 &&
+      j > 1 &&
+      a[i - 1] === b[j - 2] &&
+      a[i - 2] === b[j - 1]
+    ) {
+      result.push(`<span class="miss">${a[i - 1]}</span>`);
+      result.push(`<span class="miss">${a[i - 2]}</span>`);
+      i -= 2;
+      j -= 2;
+      mistakes += 2;
+    } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + 1) {
       result.push(`<span class="miss">${a[i - 1]}</span>`);
       i--;
       j--;
-    }
-    // 削除（余分）
-    else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
+      mistakes++;
+    } else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
       result.push(`<span class="miss">${a[i - 1]}</span>`);
       i--;
-    }
-    // ★ 挿入（不足）→ 次を赤にする
-    else {
-      markNextAsMiss = true;
+      mistakes++;
+    } else {
+      lackCount++;
       j--;
     }
   }
@@ -141,66 +196,14 @@ function renderHighlight(input, correct) {
   }
 
   highlight.innerHTML = html;
-}
 
-// -----------------------------
-function detectAndBlockHalfWidth(input, cursorPos) {
-  const halfWidthRegex = /[\u0020-\u007E\uFF61-\uFF9F]/;
+  mistakesDisplay.textContent = mistakes;
 
-  if (!halfWidthRegex.test(input)) {
-    return { text: input, cursor: cursorPos, blocked: false };
-  }
+  const typedLen = a.length;
+  const net = Math.max(typedLen - mistakes, 0);
 
-  const removed = input.replace(/[\u0020-\u007E\uFF61-\uFF9F]/g, "");
-  return { text: removed, cursor: removed.length, blocked: true };
-}
-
-// -----------------------------
-function showWarning(msg) {
-  message.textContent = msg;
-
-  if (warningTimer) clearTimeout(warningTimer);
-
-  warningTimer = setTimeout(() => {
-    message.textContent = "";
-  }, 5000);
-}
-
-// -----------------------------
-function calcMistakes(input, correct) {
-  const inputPure = input.replace(/\n/g, "");
-  const correctPure = correct.replace(/\n/g, "");
-
-  const n = inputPure.length;
-  const m = correctPure.length;
-
-  const dp = new Array(n + 1);
-  for (let i = 0; i <= n; i++) {
-    dp[i] = new Array(m + 1).fill(Number.MAX_SAFE_INTEGER);
-  }
-
-  dp[0][0] = 0;
-  for (let j = 1; j <= m; j++) dp[0][j] = 0;
-  for (let i = 1; i <= n; i++) dp[i][0] = i;
-
-  for (let i = 1; i <= n; i++) {
-    for (let j = 1; j <= m; j++) {
-      if (inputPure[i - 1] === correctPure[j - 1]) {
-        dp[i][j] = Math.min(dp[i][j], dp[i - 1][j - 1]);
-      } else {
-        dp[i][j] = Math.min(dp[i][j], dp[i - 1][j - 1] + 1);
-      }
-
-      dp[i][j] = Math.min(dp[i][j], dp[i][j - 1] + 1);
-      dp[i][j] = Math.min(dp[i][j], dp[i - 1][j] + 1);
-    }
-  }
-
-  let best = Number.MAX_SAFE_INTEGER;
-  for (let j = 0; j <= m; j++) {
-    if (dp[n][j] < best) best = dp[n][j];
-  }
-  return best === Number.MAX_SAFE_INTEGER ? 0 : best;
+  netCharsDisplay.textContent = net;
+  rankDisplay.textContent = getRank(net);
 }
 
 // -----------------------------
@@ -217,9 +220,19 @@ function openSample() {
 }
 
 // -----------------------------
+// ★ スタート処理（制限追加）
+// -----------------------------
 function startTyping() {
   if (typing) return;
+
+  // ★ sample未読み込み禁止
+  if (!sampleText) {
+    message.textContent = "見本を読み込んでください！";
+    return;
+  }
+
   typing = true;
+  isFinished = false;
 
   inputArea.disabled = false;
   inputArea.focus();
@@ -252,19 +265,22 @@ function stopTyping(timeout = false) {
 
   const typed = inputArea.value;
   const typedLen = typed.replace(/\n/g, "").length;
-  const mistakes = calcMistakes(typed, sampleText);
 
   typedCharsDisplay.textContent = typedLen;
-  mistakesDisplay.textContent = mistakes;
+
+  isFinished = true;
+  renderHighlight(inputArea.value, sampleText);
 
   message.textContent = timeout
-    ? `時間切れです！ 入力文字数：${typedLen} 誤字数：${mistakes}`
-    : `ストップしました！ 入力文字数：${typedLen} 誤字数：${mistakes}`;
+    ? `時間切れです！ 判定：${rankDisplay.textContent}`
+    : `ストップしました！ 判定：${rankDisplay.textContent}`;
 }
 
 // -----------------------------
 function resetTyping() {
   typing = false;
+  isFinished = false;
+
   clearInterval(timerInterval);
 
   inputArea.disabled = true;
@@ -273,8 +289,10 @@ function resetTyping() {
   timeDisplay.textContent = "00:00";
   typedCharsDisplay.textContent = "0";
   mistakesDisplay.textContent = "0";
-  message.textContent = "";
+  netCharsDisplay.textContent = "0";
+  rankDisplay.textContent = "未判定";
 
+  message.textContent = "";
   highlight.innerHTML = "";
 }
 
@@ -294,35 +312,37 @@ function handleInput() {
   if (processing || composing) return;
   processing = true;
 
-  let text = inputArea.value;
+  const value = inputArea.value;
   const cursor = inputArea.selectionStart;
 
-  const halfCheck = detectAndBlockHalfWidth(text, cursor);
-  if (halfCheck.blocked) {
-    inputArea.value = halfCheck.text;
-    inputArea.selectionStart = inputArea.selectionEnd = halfCheck.cursor;
+  const before = value.slice(0, cursor);
+  const after = value.slice(cursor);
 
-    showWarning("※ 半角文字は入力できません。全角で入力してください。");
+  const lines = before.split("\n");
+  let currentLine = lines.pop();
 
-    processing = false;
-    return;
+  const formattedLine = insertLineBreaks(currentLine);
+
+  const newBefore = [...lines, formattedLine].join("\n");
+  const newValue = newBefore + after;
+
+  if (newValue !== value) {
+    inputArea.value = newValue;
+
+    const diff = newBefore.length - before.length;
+    const newCursor = cursor + diff;
+
+    inputArea.selectionStart = inputArea.selectionEnd = newCursor;
   }
-
-  const noBreak = text.replace(/\n/g, "");
-  const formatted = insertLineBreaks(noBreak);
-
-  inputArea.value = formatted;
-  inputArea.selectionStart = inputArea.selectionEnd = formatted.length;
 
   if (typing) {
-    const typedLen = formatted.replace(/\n/g, "").length;
-    const mistakes = calcMistakes(formatted, sampleText);
-
+    const typedLen = inputArea.value.replace(/\n/g, "").length;
     typedCharsDisplay.textContent = typedLen;
-    mistakesDisplay.textContent = mistakes;
   }
 
-  renderHighlight(formatted, sampleText);
+  if (isFinished) {
+    renderHighlight(inputArea.value, sampleText);
+  }
 
   processing = false;
 }

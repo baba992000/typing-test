@@ -6,7 +6,6 @@ let sampleWindow = null;
 
 const LIMIT = 600;
 
-// ★ 判定済みフラグ
 let isFinished = false;
 
 const inputArea = document.getElementById("inputArea");
@@ -19,11 +18,29 @@ const message = document.getElementById("message");
 const highlight = document.getElementById("highlight");
 const startBtn = document.getElementById("startBtn");
 
-// ★ 初期状態でスタートボタン無効
 startBtn.disabled = true;
 
 // -----------------------------
-// ★ 貼り付け禁止
+// 半角チェック
+// -----------------------------
+function containsHalfWidth(str) {
+  return /[ -~]/.test(str);
+}
+
+// -----------------------------
+// 警告表示
+// -----------------------------
+let warningTimer;
+function showWarning(text) {
+  message.textContent = text;
+  clearTimeout(warningTimer);
+  warningTimer = setTimeout(() => {
+    message.textContent = "";
+  }, 5000);
+}
+
+// -----------------------------
+// 貼り付け禁止
 // -----------------------------
 inputArea.addEventListener("paste", (e) => {
   e.preventDefault();
@@ -81,21 +98,19 @@ document
 document.getElementById("resetBtn").addEventListener("click", resetTyping);
 
 // -----------------------------
-// ★ sample受信
+// sample受信
 // -----------------------------
 window.addEventListener("message", (event) => {
   if (event.data.type === "sampleTextLoaded") {
     sampleText = event.data.text;
     resetTyping();
-
-    // ★ スタートボタン有効化
     startBtn.disabled = false;
     message.textContent = "見本を読み込みました！スタートできます。";
   }
 });
 
 // -----------------------------
-// ハイライト処理（変更なし）
+// ハイライト
 // -----------------------------
 function renderHighlight(input, correct) {
   highlight.innerHTML = "";
@@ -220,12 +235,9 @@ function openSample() {
 }
 
 // -----------------------------
-// ★ スタート処理（制限追加）
-// -----------------------------
 function startTyping() {
   if (typing) return;
 
-  // ★ sample未読み込み禁止
   if (!sampleText) {
     message.textContent = "見本を読み込んでください！";
     return;
@@ -312,7 +324,16 @@ function handleInput() {
   if (processing || composing) return;
   processing = true;
 
-  const value = inputArea.value;
+  let value = inputArea.value;
+
+  // ★ 半角入力禁止
+  if (containsHalfWidth(value)) {
+    inputArea.value = value.replace(/[ -~]/g, "");
+    showWarning("半角は入力できません");
+    processing = false;
+    return;
+  }
+
   const cursor = inputArea.selectionStart;
 
   const before = value.slice(0, cursor);

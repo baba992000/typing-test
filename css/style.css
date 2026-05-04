@@ -24,10 +24,6 @@ body {
   margin: 0 0 10px 0;
 }
 
-.sample-button {
-  margin-bottom: 10px;
-}
-
 .buttons {
   text-align: center;
   margin-bottom: 10px;
@@ -36,6 +32,18 @@ body {
 button {
   margin: 0 5px;
   padding: 8px 16px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#sampleSelect {
+  margin-bottom: 10px;
+}
+
+#loadSampleBtn {
+  margin: 0px 0 0 0;
+  margin-bottom: 10px;
+  padding: 0px 0px;
   font-size: 16px;
   cursor: pointer;
 }
@@ -51,65 +59,112 @@ button {
   margin-top: 10px;
 }
 
-/* ✅ ヘッダーの高さ分を確実に空ける */
+/* -------------------- */
+/* 入力エリア */
+/* -------------------- */
+
 .input-container {
-  /* ← 260→280に拡大 */
-  /* margin-top: 280px;  */
   margin-top: 350px;
-  padding-top: 10px; /* ほんの少しゆとりを追加 */
   flex: 1;
   overflow-y: auto;
-  padding-left: 20px;
-  padding-right: 20px;
+  padding: 20px;
 }
+
+.two-column {
+  display: flex;
+  gap: 20px;
+}
+
+.typing-wrapper {
+  position: relative;
+  width: 50%;
+}
+
+/* -------------------- */
+/* textarea 共通 */
+/* -------------------- */
 
 textarea {
   width: 100%;
   height: 800px;
-  font-size: 16px;
+
   padding: 10px;
   box-sizing: border-box;
+
   resize: none;
+
   border: 1px solid #ccc;
-  background: #fff;
+
+  font-size: 16px;
   line-height: 1.6;
-  /* 改行をそのまま表示 */
+  font-family: "Yu Gothic", sans-serif;
+
   white-space: pre-wrap;
+  word-wrap: break-word;
 }
-.typing-wrapper {
-  position: relative;
+
+/* -------------------- */
+/* 見本欄 */
+/* -------------------- */
+
+#sampleArea {
+  background: #fff;
+  color: black;
 }
+
+/* -------------------- */
+/* ハイライトレイヤー */
+/* -------------------- */
 
 #highlight {
   position: absolute;
   top: 0;
   left: 0;
+
   width: 100%;
   height: 800px;
+
   padding: 10px;
+  box-sizing: border-box;
+
+  overflow: hidden;
+
   white-space: pre-wrap;
+  word-wrap: break-word;
+
   font-size: 16px;
   line-height: 1.6;
+  font-family: "Yu Gothic", sans-serif;
+
   pointer-events: none;
-  /* 比較するために重ねている文字の色を透明にする */
-  /* color: yellow; */
+
   color: transparent;
+
+  z-index: 1;
 }
 
-textarea {
+/* -------------------- */
+/* 入力欄 */
+/* -------------------- */
+
+#inputArea {
   position: relative;
-  background: transparent;
-  /* color: transparent; ← 文字を透明に */
-  color: black;
-  caret-color: black; /* カーソルは見える */
-}
-.miss {
-  /* background-color: red; */
-  background-color: rgb(200, 247, 227);
 
-  /* ミスした文字を透明にする */
-  /* color: black; */
-  color: transparent;
+  background: transparent;
+
+  color: black;
+
+  caret-color: black;
+
+  z-index: 2;
+}
+
+/* -------------------- */
+/* ハイライト色 */
+/* -------------------- */
+
+.miss {
+  background-color: rgb(200, 247, 227);
 }
 
 .lack {

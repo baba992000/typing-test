@@ -9,9 +9,17 @@
     <header class="fixed-header">
       <h1>タイピング入力画面</h1>
 
-      <div class="sample-button">
-        <button id="sampleBtn">見本</button>
-      </div>
+      <!-- ★ セレクトボタン -->
+
+      <select id="sampleSelect">
+        <option value="">見本を選択</option>
+        <option value="81.txt">81.txt</option>
+        <option value="text2.txt">見本②</option>
+      </select>
+      <button id="loadSampleBtn">読み込み</button>
+      <!-- <div class="sample-button">
+        <input type="file" id="fileInput" accept=".txt" />
+      </div> -->
 
       <div class="buttons">
         <button id="startBtn">スタート</button>
@@ -20,16 +28,12 @@
       </div>
 
       <div id="status">
-        <!-- 経過時間 -->
         <p>経過時間: <span id="time">00:00</span></p>
-
-        <!-- ★ 横一列にまとめる -->
         <p>
           入力文字数: <span id="typedChars">0</span> ／ 誤字数:
-          <span id="mistakes">0</span> ／ 純字数: <span id="netChars">0</span>
+          <span id="mistakes">0</span> ／ 純字数:
+          <span id="netChars">0</span>
         </p>
-
-        <!-- ★ 判定は下 -->
         <p>判定: <span id="rank">未判定</span></p>
       </div>
 
@@ -37,9 +41,17 @@
     </header>
 
     <main class="input-container">
-      <div class="typing-wrapper">
-        <div id="highlight"></div>
-        <textarea id="inputArea"></textarea>
+      <div class="two-column">
+        <!-- 左：見本 -->
+        <div class="typing-wrapper">
+          <textarea id="sampleArea" readonly></textarea>
+        </div>
+
+        <!-- 右：入力 -->
+        <div class="typing-wrapper">
+          <div id="highlight"></div>
+          <textarea id="inputArea"></textarea>
+        </div>
       </div>
     </main>
 

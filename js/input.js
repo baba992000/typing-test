@@ -2,23 +2,63 @@ let timerInterval;
 let startTime;
 let typing = false;
 let sampleText = "";
-let sampleWindow = null;
 
 const LIMIT = 600;
 
 let isFinished = false;
 
+// -----------------------------
+// 要素取得
+// -----------------------------
 const inputArea = document.getElementById("inputArea");
+const sampleArea = document.getElementById("sampleArea");
+
+const sampleSelect = document.getElementById("sampleSelect");
+const loadSampleBtn = document.getElementById("loadSampleBtn");
+
 const timeDisplay = document.getElementById("time");
 const typedCharsDisplay = document.getElementById("typedChars");
 const mistakesDisplay = document.getElementById("mistakes");
 const netCharsDisplay = document.getElementById("netChars");
 const rankDisplay = document.getElementById("rank");
+
 const message = document.getElementById("message");
+
 const highlight = document.getElementById("highlight");
+
 const startBtn = document.getElementById("startBtn");
 
 startBtn.disabled = true;
+
+// -----------------------------
+// セレクトから txt 読み込み
+// -----------------------------
+loadSampleBtn.addEventListener("click", async () => {
+  const fileName = sampleSelect.value;
+
+  if (!fileName) {
+    message.textContent = "見本を選択してください";
+    return;
+  }
+
+  try {
+    const response = await fetch(`sample/${fileName}`);
+
+    const text = await response.text();
+
+    sampleText = text;
+
+    sampleArea.value = text;
+
+    resetTyping();
+
+    startBtn.disabled = false;
+
+    message.textContent = "見本を読み込みました！スタートできます。";
+  } catch (e) {
+    message.textContent = "読み込みに失敗しました";
+  }
+});
 
 // -----------------------------
 // 半角チェック
@@ -31,9 +71,12 @@ function containsHalfWidth(str) {
 // 警告表示
 // -----------------------------
 let warningTimer;
+
 function showWarning(text) {
   message.textContent = text;
+
   clearTimeout(warningTimer);
+
   warningTimer = setTimeout(() => {
     message.textContent = "";
   }, 5000);
@@ -44,6 +87,14 @@ function showWarning(text) {
 // -----------------------------
 inputArea.addEventListener("paste", (e) => {
   e.preventDefault();
+});
+
+// -----------------------------
+// スクロール同期
+// -----------------------------
+inputArea.addEventListener("scroll", () => {
+  highlight.scrollTop = inputArea.scrollTop;
+  highlight.scrollLeft = inputArea.scrollLeft;
 });
 
 // -----------------------------
@@ -60,57 +111,12 @@ function getRank(net) {
   if (net >= 250) return "4級";
   if (net >= 100) return "5級";
   if (net >= 50) return "6級";
+
   return "未満";
 }
 
 // -----------------------------
-// 40文字自動改行
-// -----------------------------
-function insertLineBreaks(text, maxCount = 40) {
-  let count = 0;
-  let newText = "";
-  let skipSpace = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-
-    if (skipSpace && (char === " " || char === "　")) continue;
-
-    count += /[ -~]/.test(char) ? 0.5 : 1;
-    newText += char;
-    skipSpace = false;
-
-    if (count >= maxCount) {
-      newText += "\n";
-      count = 0;
-      skipSpace = true;
-    }
-  }
-  return newText;
-}
-
-// -----------------------------
-document.getElementById("sampleBtn").addEventListener("click", openSample);
-document.getElementById("startBtn").addEventListener("click", startTyping);
-document
-  .getElementById("stopBtn")
-  .addEventListener("click", () => stopTyping(false));
-document.getElementById("resetBtn").addEventListener("click", resetTyping);
-
-// -----------------------------
-// sample受信
-// -----------------------------
-window.addEventListener("message", (event) => {
-  if (event.data.type === "sampleTextLoaded") {
-    sampleText = event.data.text;
-    resetTyping();
-    startBtn.disabled = false;
-    message.textContent = "見本を読み込みました！スタートできます。";
-  }
-});
-
-// -----------------------------
-// ハイライト
+// ハイライト描画
 // -----------------------------
 function renderHighlight(input, correct) {
   highlight.innerHTML = "";
@@ -154,6 +160,7 @@ function renderHighlight(input, correct) {
 
   let i = n;
   let j = bestJ;
+
   const result = [];
 
   let lackCount = 0;
@@ -163,11 +170,13 @@ function renderHighlight(input, correct) {
     if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
       if (lackCount > 0) {
         result.push(`<span class="lack">${a[i - 1]}</span>`);
+
         lackCount--;
         mistakes++;
       } else {
         result.push(`<span>${a[i - 1]}</span>`);
       }
+
       i--;
       j--;
     } else if (
@@ -177,18 +186,25 @@ function renderHighlight(input, correct) {
       a[i - 2] === b[j - 1]
     ) {
       result.push(`<span class="miss">${a[i - 1]}</span>`);
+
       result.push(`<span class="miss">${a[i - 2]}</span>`);
+
       i -= 2;
       j -= 2;
+
       mistakes += 2;
     } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + 1) {
       result.push(`<span class="miss">${a[i - 1]}</span>`);
+
       i--;
       j--;
+
       mistakes++;
     } else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
       result.push(`<span class="miss">${a[i - 1]}</span>`);
+
       i--;
+
       mistakes++;
     } else {
       lackCount++;
@@ -215,72 +231,82 @@ function renderHighlight(input, correct) {
   mistakesDisplay.textContent = mistakes;
 
   const typedLen = a.length;
+
   const net = Math.max(typedLen - mistakes, 0);
 
   netCharsDisplay.textContent = net;
+
   rankDisplay.textContent = getRank(net);
 }
 
 // -----------------------------
-function openSample() {
-  if (!sampleWindow || sampleWindow.closed) {
-    sampleWindow = window.open(
-      "sample.html",
-      "sampleWindow",
-      "width=800,height=800",
-    );
-  } else {
-    sampleWindow.focus();
-  }
-}
-
+// ボタン処理
 // -----------------------------
+document.getElementById("startBtn").addEventListener("click", startTyping);
+
+document
+  .getElementById("stopBtn")
+  .addEventListener("click", () => stopTyping(false));
+
+document.getElementById("resetBtn").addEventListener("click", resetTyping);
+
 function startTyping() {
   if (typing) return;
 
   if (!sampleText) {
     message.textContent = "見本を読み込んでください！";
+
     return;
   }
 
   typing = true;
+
   isFinished = false;
 
+  highlight.innerHTML = "";
+
   inputArea.disabled = false;
+
   inputArea.focus();
-  message.textContent = "";
 
   startTime = new Date();
+
   timerInterval = setInterval(updateTime, 1000);
 }
 
-// -----------------------------
 function updateTime() {
   const now = new Date();
+
   const sec = Math.floor((now - startTime) / 1000);
 
   const m = Math.floor(sec / 60);
+
   const s = sec % 60;
 
   timeDisplay.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 
-  if (sec >= LIMIT) stopTyping(true);
+  if (sec >= LIMIT) {
+    stopTyping(true);
+  }
 }
 
-// -----------------------------
 function stopTyping(timeout = false) {
   if (!typing) return;
+
   typing = false;
 
   clearInterval(timerInterval);
+
   inputArea.disabled = true;
 
   const typed = inputArea.value;
+
   const typedLen = typed.replace(/\n/g, "").length;
 
   typedCharsDisplay.textContent = typedLen;
 
   isFinished = true;
+
   renderHighlight(inputArea.value, sampleText);
 
   message.textContent = timeout
@@ -288,79 +314,73 @@ function stopTyping(timeout = false) {
     : `ストップしました！ 判定：${rankDisplay.textContent}`;
 }
 
-// -----------------------------
 function resetTyping() {
   typing = false;
+
   isFinished = false;
 
   clearInterval(timerInterval);
 
   inputArea.disabled = true;
+
   inputArea.value = "";
 
   timeDisplay.textContent = "00:00";
+
   typedCharsDisplay.textContent = "0";
+
   mistakesDisplay.textContent = "0";
+
   netCharsDisplay.textContent = "0";
+
   rankDisplay.textContent = "未判定";
 
   message.textContent = "";
+
   highlight.innerHTML = "";
 }
 
 // -----------------------------
+// 日本語入力対応
+// -----------------------------
 let processing = false;
+
 let composing = false;
 
 inputArea.addEventListener("compositionstart", () => (composing = true));
+
 inputArea.addEventListener("compositionend", () => {
   composing = false;
+
   handleInput();
 });
+
 inputArea.addEventListener("input", handleInput);
 
-// -----------------------------
 function handleInput() {
   if (processing || composing) return;
+
   processing = true;
 
   let value = inputArea.value;
 
-  // ★ 半角入力禁止
   if (containsHalfWidth(value)) {
     inputArea.value = value.replace(/[ -~]/g, "");
+
     showWarning("半角は入力できません");
+
     processing = false;
+
     return;
-  }
-
-  const cursor = inputArea.selectionStart;
-
-  const before = value.slice(0, cursor);
-  const after = value.slice(cursor);
-
-  const lines = before.split("\n");
-  let currentLine = lines.pop();
-
-  const formattedLine = insertLineBreaks(currentLine);
-
-  const newBefore = [...lines, formattedLine].join("\n");
-  const newValue = newBefore + after;
-
-  if (newValue !== value) {
-    inputArea.value = newValue;
-
-    const diff = newBefore.length - before.length;
-    const newCursor = cursor + diff;
-
-    inputArea.selectionStart = inputArea.selectionEnd = newCursor;
   }
 
   if (typing) {
     const typedLen = inputArea.value.replace(/\n/g, "").length;
+
     typedCharsDisplay.textContent = typedLen;
   }
 
+  // ★ 入力中はハイライトしない
   if (isFinished) {
     renderHighlight(inputArea.value, sampleText);
   }

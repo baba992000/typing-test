@@ -1,60 +1,72 @@
 <!doctype html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <title>typing-test</title>
-    <link rel="stylesheet" href="css/style.css" />
-  </head>
-  <body>
-    <header class="fixed-header">
-      <h1>タイピング入力画面</h1>
 
-      <!-- ★ セレクトボタン -->
+<head>
+  <meta charset="UTF-8" />
+  <title>typing-test</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
 
-      <select id="sampleSelect">
-        <option value="">見本を選択</option>
-        <option value="81.txt">81.txt</option>
-        <option value="text2.txt">見本②</option>
-      </select>
-      <button id="loadSampleBtn">読み込み</button>
-      <!-- <div class="sample-button">
+<body>
+  <header class="fixed-header">
+    <h1>タイピング入力画面</h1>
+
+    <!-- ★ セレクトボタン -->
+
+    <select id="sampleSelect">
+      <option value="">見本を選択</option>
+
+      <option value="76.txt">76.txt</option>
+      <option value="77.txt">77.txt</option>
+      <option value="78.txt">78.txt</option>
+      <option value="79.txt">79.txt</option>
+      <option value="80.txt">80.txt</option>
+      <option value="81.txt">81.txt</option>
+      <option value="82.txt">82.txt</option>
+      <option value="83.txt">83.txt</option>
+
+      <option value="text2.txt">見本②</option>
+    </select>
+    <button id="loadSampleBtn">読み込み</button>
+    <!-- <div class="sample-button">
         <input type="file" id="fileInput" accept=".txt" />
       </div> -->
 
-      <div class="buttons">
-        <button id="startBtn">スタート</button>
-        <button id="stopBtn">ストップ</button>
-        <button id="resetBtn">リセット</button>
+    <div class="buttons">
+      <button id="startBtn">スタート</button>
+      <button id="stopBtn">ストップ</button>
+      <button id="resetBtn">リセット</button>
+    </div>
+
+    <div id="status">
+      <p>経過時間: <span id="time">00:00</span></p>
+      <p>
+        入力文字数: <span id="typedChars">0</span> ／ 誤字数:
+        <span id="mistakes">0</span> ／ 純字数:
+        <span id="netChars">0</span>
+      </p>
+      <p>判定: <span id="rank">未判定</span></p>
+    </div>
+
+    <p id="message" class="result-message"></p>
+  </header>
+
+  <main class="input-container">
+    <div class="two-column">
+      <!-- 左：見本 -->
+      <div class="typing-wrapper">
+        <textarea id="sampleArea" readonly></textarea>
       </div>
 
-      <div id="status">
-        <p>経過時間: <span id="time">00:00</span></p>
-        <p>
-          入力文字数: <span id="typedChars">0</span> ／ 誤字数:
-          <span id="mistakes">0</span> ／ 純字数:
-          <span id="netChars">0</span>
-        </p>
-        <p>判定: <span id="rank">未判定</span></p>
+      <!-- 右：入力 -->
+      <div class="typing-wrapper">
+        <div id="highlight"></div>
+        <textarea id="inputArea"></textarea>
       </div>
+    </div>
+  </main>
 
-      <p id="message" class="result-message"></p>
-    </header>
+  <script src="js/input.js"></script>
+</body>
 
-    <main class="input-container">
-      <div class="two-column">
-        <!-- 左：見本 -->
-        <div class="typing-wrapper">
-          <textarea id="sampleArea" readonly></textarea>
-        </div>
-
-        <!-- 右：入力 -->
-        <div class="typing-wrapper">
-          <div id="highlight"></div>
-          <textarea id="inputArea"></textarea>
-        </div>
-      </div>
-    </main>
-
-    <script src="js/input.js"></script>
-  </body>
 </html>

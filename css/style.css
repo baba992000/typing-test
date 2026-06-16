@@ -77,7 +77,8 @@ button {
 
 .typing-wrapper {
   position: relative;
-  width: 50%;
+  flex: 1;
+  min-width: 0;
 }
 
 /* -------------------- */
@@ -97,10 +98,12 @@ textarea {
 
   font-size: 16px;
   line-height: 1.6;
-  font-family: "Yu Gothic", sans-serif;
+  font-family: "BIZ UD Gothic", "MS Gothic", "ＭＳ ゴシック", "Osaka-mono", monospace;
 
   white-space: pre-wrap;
   word-wrap: break-word;
+  word-break: break-all;
+  line-break: anywhere;
 }
 
 /* -------------------- */
@@ -131,10 +134,12 @@ textarea {
 
   white-space: pre-wrap;
   word-wrap: break-word;
+  word-break: break-all;
+  line-break: anywhere;
 
   font-size: 16px;
   line-height: 1.6;
-  font-family: "Yu Gothic", sans-serif;
+  font-family: "BIZ UD Gothic", "MS Gothic", "ＭＳ ゴシック", "Osaka-mono", monospace;
 
   pointer-events: none;
 
@@ -163,10 +168,53 @@ textarea {
 /* ハイライト色 */
 /* -------------------- */
 
-.miss {
+/* .miss {
   background-color: rgb(200, 247, 227);
+} */
+
+.miss {
+  background-color: rgb(76, 235, 27);
 }
 
 .lack {
   background-color: orange;
+}
+
+/* -------------------- */
+/* レスポンシブ対応 */
+/* -------------------- */
+
+/* 1. 常に左右対称の横並びをキープ */
+
+/* 2. スマートフォンなど、さらに画面が狭い場合（700px以下） */
+@media (max-width: 700px) {
+
+  textarea,
+  #highlight {
+    font-size: 14px;
+    /* 文字サイズを少し小さくする */
+  }
+}
+
+@media (max-width: 480px) {
+
+  textarea,
+  #highlight {
+    font-size: 12px;
+    /* さらに文字サイズを小さくする */
+  }
+}
+
+/* -------------------- */
+/* 判定終了時のスタイル */
+/* -------------------- */
+#inputArea.finished {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#highlight.finished {
+  color: #333;
+  pointer-events: auto;
+  z-index: 3;
 }

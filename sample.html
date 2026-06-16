@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>見本テキスト</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+      body {
+        font-family: "Yu Gothic", sans-serif;
+        margin: 30px;
+        background-color: #fafafa;
+        color: #333;
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .box {
+        border: 1px solid #ccc;
+        padding: 15px;
+        background: #fff;
+        line-height: 1.8;
+        white-space: pre-wrap;
+      }
+      .file-select {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>見本テキスト</h1>
+    <div class="file-select">
+      <input type="file" id="fileInput" accept=".txt" />
+      <p>※ テキストファイル（.txt）を選択してください。</p>
+    </div>
+    <div class="box" id="sampleText">ファイルを選択してください。</div>
+    <script>
+      function insertLineBreaks(text, maxCount = 40) {
+        let count = 0;
+        let newText = "";
+        let skipSpace = false;
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i];
+          if (skipSpace && (char === " " || char === "　")) continue;
+          count += /[ -~]/.test(char) ? 0.5 : 1;
+          newText += char;
+          skipSpace = false;
+          if (count >= maxCount) {
+            newText += "\n";
+            count = 0;
+            skipSpace = true;
+          }
+        }
+        return newText;
+      }
+      document
+        .getElementById("fileInput")
+        .addEventListener("change", function (event) {
+          const file = event.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            const original = e.target.result.replace(/\r?\n/g, "");
+            let displayText = e.target.result
+              .replace(/ /g, "　")
+              .replace(/,/g, "、")
+              .replace(/，/g, "、")
+              .replace(/\./g, "。")
+              .replace(/．/g, "。");
+            const paragraphs = displayText.split(/\r?\n+/);
+            const formatted = paragraphs.map((p) => {
+              let trimmed = p.trimStart();
+              if (p.startsWith("　")) {
+                trimmed = "　" + trimmed.replace(/^　+/, "");
+              }
+              return insertLineBreaks(trimmed);
+            });
+            const finalText = formatted.join("\n\n");
+            document.getElementById("sampleText").textContent = finalText;
+            if (window.opener && !window.opener.closed) {
+              const compareText = insertLineBreaks(original);
+              window.opener.postMessage(
+                { type: "sampleTextLoaded", text: compareText },
+                "*"
+              );
+            }
+          };
+          reader.readAsText(file, "UTF-8");
+        });
+    </script>
+  </body>
+</html>

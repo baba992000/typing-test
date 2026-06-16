@@ -161,69 +161,76 @@ function renderHighlight(input, correct) {
   let i = n;
   let j = bestJ;
 
-  const result = [];
-
-  let lackCount = 0;
+  const operations = [];
   let mistakes = 0;
 
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
-      if (lackCount > 0) {
-        result.push(`<span class="lack">${a[i - 1]}</span>`);
-
-        lackCount--;
-        mistakes++;
-      } else {
-        result.push(`<span>${a[i - 1]}</span>`);
-      }
-
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1] && dp[i][j] === dp[i - 1][j - 1]) {
+      operations.push({ type: "normal", char: a[i - 1] });
       i--;
       j--;
     } else if (
       i > 1 &&
       j > 1 &&
       a[i - 1] === b[j - 2] &&
-      a[i - 2] === b[j - 1]
+      a[i - 2] === b[j - 1] &&
+      dp[i][j] === dp[i - 2][j - 2] + 2
     ) {
-      result.push(`<span class="miss">${a[i - 1]}</span>`);
-
-      result.push(`<span class="miss">${a[i - 2]}</span>`);
-
+      operations.push({ type: "miss", char: a[i - 1] });
+      operations.push({ type: "miss", char: a[i - 2] });
       i -= 2;
       j -= 2;
-
       mistakes += 2;
     } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + 1) {
-      result.push(`<span class="miss">${a[i - 1]}</span>`);
-
+      operations.push({ type: "miss", char: a[i - 1] });
       i--;
       j--;
-
       mistakes++;
     } else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
-      result.push(`<span class="miss">${a[i - 1]}</span>`);
-
+      operations.push({ type: "miss", char: a[i - 1] });
       i--;
-
       mistakes++;
     } else {
-      lackCount++;
+      // 削除（見本にあるが入力がない＝不足）
+      operations.push({ type: "lack", char: b[j - 1] });
       j--;
+      mistakes++;
     }
   }
 
-  result.reverse();
+  operations.reverse();
 
   let html = "";
-  let index = 0;
+  let opIndex = 0;
 
   for (let char of input) {
     if (char === "\n") {
       html += "<br>";
     } else {
-      html += result[index] || `<span>${char}</span>`;
-      index++;
+      // 現在の入力文字の前に不足している文字があれば先に描画
+      while (opIndex < operations.length && operations[opIndex].type === "lack") {
+        html += `<span class="lack">${operations[opIndex].char}</span>`;
+        opIndex++;
+      }
+
+      if (opIndex < operations.length) {
+        const op = operations[opIndex];
+        if (op.type === "miss") {
+          html += `<span class="miss">${char}</span>`;
+        } else {
+          html += `<span>${char}</span>`;
+        }
+        opIndex++;
+      } else {
+        html += `<span>${char}</span>`;
+      }
     }
+  }
+
+  // 残った不足文字を全て描画
+  while (opIndex < operations.length && operations[opIndex].type === "lack") {
+    html += `<span class="lack">${operations[opIndex].char}</span>`;
+    opIndex++;
   }
 
   highlight.innerHTML = html;
@@ -263,6 +270,9 @@ function startTyping() {
 
   isFinished = false;
 
+  inputArea.classList.remove("finished");
+  highlight.classList.remove("finished");
+
   highlight.innerHTML = "";
 
   inputArea.disabled = false;
@@ -299,6 +309,9 @@ function stopTyping(timeout = false) {
 
   inputArea.disabled = true;
 
+  inputArea.classList.add("finished");
+  highlight.classList.add("finished");
+
   const typed = inputArea.value;
 
   const typedLen = typed.replace(/\n/g, "").length;
@@ -322,6 +335,9 @@ function resetTyping() {
   clearInterval(timerInterval);
 
   inputArea.disabled = true;
+
+  inputArea.classList.remove("finished");
+  highlight.classList.remove("finished");
 
   inputArea.value = "";
 

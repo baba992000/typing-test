@@ -134,7 +134,7 @@ function renderHighlight(input, correct) {
 
   for (let i = 1; i <= n; i++) {
     for (let j = 1; j <= m; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const cost = a[i - 1] === b[j - 1] ? 0 : 2;
 
       dp[i][j] = Math.min(
         dp[i - 1][j] + 1,
@@ -181,7 +181,7 @@ function renderHighlight(input, correct) {
       i -= 2;
       j -= 2;
       mistakes += 2;
-    } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + 1) {
+    } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + 2) {
       operations.push({ type: "miss", char: a[i - 1] });
       i--;
       j--;
